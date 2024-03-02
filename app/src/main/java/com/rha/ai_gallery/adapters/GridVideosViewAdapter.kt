@@ -5,10 +5,10 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.rha.ai_gallery.R
-import com.rha.ai_gallery.models.VideoFile
+import com.rha.ai_gallery.models.VideoGridItem
 import com.rha.ai_gallery.viewholders.GridVideoViewHolder
 
-class GridVideosViewAdapter(private val videosList: MutableList<VideoFile>): RecyclerView.Adapter<GridVideoViewHolder>() {
+class GridVideosViewAdapter(private val videosList: MutableList<VideoGridItem>): RecyclerView.Adapter<GridVideoViewHolder>() {
     private lateinit var context: Context
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): GridVideoViewHolder {
