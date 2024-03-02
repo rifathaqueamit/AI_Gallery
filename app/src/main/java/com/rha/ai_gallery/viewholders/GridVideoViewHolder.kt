@@ -20,4 +20,8 @@ class GridVideoViewHolder(itemView: View) : ViewHolder(itemView) {
             .diskCacheStrategy(DiskCacheStrategy.ALL)
             .into(viewBinding.imageView)
     }
+
+    fun showLoading(show: Boolean) {
+        viewBinding.loading.visibility = if (show) View.VISIBLE else View.GONE
+    }
 }

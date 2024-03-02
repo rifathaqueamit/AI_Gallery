@@ -9,11 +9,14 @@ import androidx.recyclerview.widget.GridLayoutManager
 import com.rha.ai_gallery.adapters.GridVideosViewAdapter
 import com.rha.ai_gallery.databinding.ActivityMainBinding
 import com.rha.ai_gallery.models.VideoFile
+import com.rha.ai_gallery.videoclassifier.VideoActionsClassifier
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var gridVideosViewAdapter: GridVideosViewAdapter
+    private var videoActionsClassifier: VideoActionsClassifier? = null
+
     private val videosList = mutableListOf<VideoFile>()
     private val REQUEST_CODE = 123
 
@@ -22,6 +25,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         initUI()
+        initClassifier()
     }
 
     private fun initUI() {
@@ -30,6 +34,10 @@ class MainActivity : AppCompatActivity() {
         gridVideosViewAdapter = GridVideosViewAdapter(videosList)
         binding.recyclerView.adapter = gridVideosViewAdapter
         checkPermission()
+    }
+
+    private fun initClassifier() {
+        videoActionsClassifier = VideoActionsClassifier(this)
     }
 
     private fun checkPermission() {
@@ -60,5 +68,10 @@ class MainActivity : AppCompatActivity() {
             gridVideosViewAdapter.notifyItemInserted(videosList.size - 1)
         }
         cursor.close()
+    }
+
+    override fun onDestroy() {
+        videoActionsClassifier?.destroy()
+        super.onDestroy()
     }
 }
