@@ -28,11 +28,7 @@ object CommonUtilities {
 
     fun readTextFileAsList(context: Context, textFileName: String): List<String> {
         val br = BufferedReader(InputStreamReader(context.assets.open(textFileName)))
-        var line: String
-        val classes: MutableList<String> = ArrayList()
-        while (br.readLine().also { line = it } != null) {
-            classes.add(line)
-        }
-        return classes
+        val text = br.readText()
+        return text.lines()
     }
 }
