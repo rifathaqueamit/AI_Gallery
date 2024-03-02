@@ -38,6 +38,7 @@ class MainActivity : AppCompatActivity() {
     private val DETECTION_PER_SECOND = 15   // Produce a detection result pet 15 seconds
     private val TARGET_VIDEO_SIZE = 160
     private val VIDEO_PATH_FILTER = "poc_test_videos"
+    private val TOP_COUNT = 1
 
     private val scope = CoroutineScope(Dispatchers.Default)
     private var job: Job? = null
@@ -159,7 +160,7 @@ class MainActivity : AppCompatActivity() {
                             it.recycle()
                         }
                         if  ((i + 1) % DETECTION_PER_SECOND == 0 || i == durationInSeconds - 1) {
-                            Log.i(TAG, "inference frames count : ${frames.size}")
+                            Log.i(TAG, "processVideos() inference frames count : ${frames.size}")
                             videoActionsClassifier?.addInferenceFrames(frames)
                             val scores = videoActionsClassifier?.processFrames()
 
@@ -168,6 +169,13 @@ class MainActivity : AppCompatActivity() {
                                 for (scoreIndex in scores.indices) scoresIdx[scoreIndex] = scoreIndex
                                 Arrays.sort(scoresIdx) { o1, o2 -> scores[o2!!].compareTo(scores[o1!!]) }
 
+                                val tops = arrayOfNulls<String>(TOP_COUNT)
+                                val classes = videoActionsClassifier?.getClassesList()
+                                if (classes != null) {
+                                    for (j in 0 until TOP_COUNT) tops[j] = classes[scoresIdx[j]!!]
+                                    val result = java.lang.String.join(", ", *tops)
+                                    Log.i(TAG, "processVideos() result : $result")
+                                }
                             }
 
                             countOfFrames = durationInSeconds - (i + 1)

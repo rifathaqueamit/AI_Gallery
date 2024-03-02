@@ -32,6 +32,10 @@ class VideoActionsClassifier(private val context: Context) {
         }
     }
 
+    fun getClassesList(): List<String>? {
+        return modelClasses
+    }
+
     fun reset(countOfFrames: Int) {
         countOfFramesPerInference = countOfFrames
         inTensorBuffer = Tensor.allocateFloatBuffer(countOfFramesPerInference * 3 * targetVideoSize * targetVideoSize)
