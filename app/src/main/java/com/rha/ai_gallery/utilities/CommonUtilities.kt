@@ -1,6 +1,7 @@
 package com.rha.ai_gallery.utilities
 
 import android.content.Context
+import com.google.gson.Gson
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileOutputStream
@@ -30,5 +31,9 @@ object CommonUtilities {
         val br = BufferedReader(InputStreamReader(context.assets.open(textFileName)))
         val text = br.readText()
         return text.lines()
+    }
+
+    fun detectionsToString(detections: ArrayList<Pair<Int, List<Pair<String, Float>>>>): String {
+        return Gson().toJson(detections)
     }
 }

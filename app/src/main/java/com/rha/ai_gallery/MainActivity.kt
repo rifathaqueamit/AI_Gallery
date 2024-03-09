@@ -14,6 +14,7 @@ import com.rha.ai_gallery.databinding.ActivityMainBinding
 import com.rha.ai_gallery.managers.VideoMetaDataManager
 import com.rha.ai_gallery.models.VideoGridItem
 import com.rha.ai_gallery.models.VideoMetaData
+import com.rha.ai_gallery.utilities.CommonUtilities
 import com.rha.ai_gallery.videoclassifier.VideoActionsClassifier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,7 +32,7 @@ class MainActivity : AppCompatActivity() {
     private var videoActionsClassifier: VideoActionsClassifier? = null
 
     private val videosList = mutableListOf<VideoGridItem>()
-    private val videosMetaData = HashMap<VideoGridItem,  VideoMetaData>()
+    private val videosMetaData = HashMap<String,  VideoMetaData>()
 
     private val videoMetaDataManager = VideoMetaDataManager()
 
@@ -39,8 +40,9 @@ class MainActivity : AppCompatActivity() {
     private val DETECTION_PER_SECOND = 10   // Produce a detection result per 10 seconds
     private val TARGET_VIDEO_SIZE = 160
     private val VIDEO_PATH_FILTER = "poc_test_videos"
-    private val TOP_COUNT = 1
+    private val TOP_COUNT = 5
     private val MIN_NUM_FRAMES = 4
+    private val DETECTION_THRESHOLD = 5
 
     private val scope = CoroutineScope(Dispatchers.Default)
     private var job: Job? = null
@@ -55,9 +57,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun onVideoClick(videoGridItem: VideoGridItem?) {
         videoGridItem?.let {
-            val intent = Intent(this, VideoViewerActivity::class.java)
-            intent.putExtra("url", it.videoFullPath)
-            startActivity(intent)
+            val metaData = videosMetaData[it.videoFullPath]
+            if (!it.processing && metaData != null) {
+                val intent = Intent(this, VideoViewerActivity::class.java)
+                intent.putExtra("url", it.videoFullPath)
+                intent.putExtra("detections", metaData.detections)
+                startActivity(intent)
+            }
         }
     }
 
@@ -137,69 +143,99 @@ class MainActivity : AppCompatActivity() {
             videosMetaData.clear()
             videosList.forEachIndexed { index, video ->
                 videoMetaDataManager.setDataSource(video.videoFullPath)
+                val videoDetections = arrayListOf<Pair<Int, List<Pair<String, Float>>>>()
                 val metaData = videoMetaDataManager.getVideoMetaData()
                 if (metaData != null) {
-                    videosMetaData[video] = metaData
-                    Log.i(TAG, "processVideos() video : ${video.videoFullPath}, duration : ${metaData.duration}")
+                    videosMetaData[video.videoFullPath] = metaData
+                    // Log.i(TAG, "processVideos() video : ${video.videoFullPath}, duration : ${metaData.duration}")
 
-                    val durationInSeconds = ceil(metaData.duration / 1000).toInt()
-                    var countOfFrames = DETECTION_PER_SECOND
-                    if (durationInSeconds < DETECTION_PER_SECOND)  {
-                        countOfFrames = durationInSeconds
-                    }
-                    Log.i(TAG, "processVideos() countOfFrames : $countOfFrames")
-                    videoActionsClassifier?.reset(countOfFrames)
+                    if (metaData.detections.isNullOrEmpty()) {
 
-                    val frames = mutableListOf<Bitmap>()
-                    for (i in 0 until durationInSeconds) {
-                        val fromMs = i * 1000
-                        var toMs = (i + 1) * 1000
-                        if (i == durationInSeconds - 1)  toMs = (durationInSeconds * 1000) - 1
-                        val timeUs = (1000 * (fromMs + ((toMs - fromMs) * i / (countOfFrames - 1.0)).toInt())).toLong()
-                        val bitmap = videoMetaDataManager .getVideoFrame(timeUs)
-                        bitmap?.let {
-                            val ratio = Math.min(bitmap.width, bitmap.height) / TARGET_VIDEO_SIZE.toFloat()
-                            val resizedBitmap = Bitmap.createScaledBitmap(bitmap, (bitmap.width / ratio).toInt(), (bitmap.height / ratio).toInt(), true)
-                            val centerCroppedBitmap = Bitmap.createBitmap(
-                                resizedBitmap,
-                                if (resizedBitmap.width > resizedBitmap.height) (resizedBitmap.width - resizedBitmap.height) / 2 else 0,
-                                if (resizedBitmap.height > resizedBitmap.width) (resizedBitmap.height - resizedBitmap.width) / 2 else 0,
-                                TARGET_VIDEO_SIZE,
-                                TARGET_VIDEO_SIZE
-                            )
-                            frames.add(centerCroppedBitmap)
-                            resizedBitmap.recycle()
-                            it.recycle()
+                        val durationInSeconds = ceil(metaData.duration / 1000).toInt()
+                        var countOfFrames = DETECTION_PER_SECOND
+                        if (durationInSeconds < DETECTION_PER_SECOND)  {
+                            countOfFrames = durationInSeconds
                         }
-                        if  ((i + 1) % DETECTION_PER_SECOND == 0 || i == durationInSeconds - 1) {
-                            Log.i(TAG, "processVideos() inference frames count : ${frames.size}")
-                            videoActionsClassifier?.addInferenceFrames(frames)
-                            val scores = videoActionsClassifier?.processFrames()
+                        // Log.i(TAG, "processVideos() countOfFrames : $countOfFrames")
+                        videoActionsClassifier?.reset(countOfFrames)
 
-                            scores?.let {
-                                val scoresIdx = arrayOfNulls<Int>(scores.size)
-                                for (scoreIndex in scores.indices) scoresIdx[scoreIndex] = scoreIndex
-                                Arrays.sort(scoresIdx) { o1, o2 -> scores[o2!!].compareTo(scores[o1!!]) }
-
-                                val tops = arrayOfNulls<String>(TOP_COUNT)
-                                val classes = videoActionsClassifier?.getClassesList()
-                                if (classes != null) {
-                                    for (j in 0 until TOP_COUNT) tops[j] = classes[scoresIdx[j]!!]
-                                    val result = java.lang.String.join(", ", *tops)
-                                    Log.i(TAG, "processVideos() result : $result")
-                                }
-                            }
-
-                            countOfFrames = durationInSeconds - (i + 1)
-                            videoActionsClassifier?.reset(countOfFrames)
-
-                            frames.forEach {
+                        val frames = mutableListOf<Bitmap>()
+                        var timeStamp = 0
+                        for (i in 0 until durationInSeconds) {
+                            val fromMs = i * 1000
+                            var toMs = (i + 1) * 1000
+                            if (i == durationInSeconds - 1)  toMs = (durationInSeconds * 1000) - 1
+                            val timeUs = (1000 * (fromMs + ((toMs - fromMs) * i / (countOfFrames - 1.0)).toInt())).toLong()
+                            val bitmap = videoMetaDataManager .getVideoFrame(timeUs)
+                            bitmap?.let {
+                                val ratio = Math.min(bitmap.width, bitmap.height) / TARGET_VIDEO_SIZE.toFloat()
+                                val resizedBitmap = Bitmap.createScaledBitmap(bitmap, (bitmap.width / ratio).toInt(), (bitmap.height / ratio).toInt(), true)
+                                val centerCroppedBitmap = Bitmap.createBitmap(
+                                    resizedBitmap,
+                                    if (resizedBitmap.width > resizedBitmap.height) (resizedBitmap.width - resizedBitmap.height) / 2 else 0,
+                                    if (resizedBitmap.height > resizedBitmap.width) (resizedBitmap.height - resizedBitmap.width) / 2 else 0,
+                                    TARGET_VIDEO_SIZE,
+                                    TARGET_VIDEO_SIZE
+                                )
+                                frames.add(centerCroppedBitmap)
+                                resizedBitmap.recycle()
                                 it.recycle()
                             }
-                            frames.clear()
+                            if  ((i + 1) % DETECTION_PER_SECOND == 0 || i == durationInSeconds - 1) {
+                                // Log.i(TAG, "processVideos() inference frames count : ${frames.size}")
+                                videoActionsClassifier?.addInferenceFrames(frames)
+                                val scores = videoActionsClassifier?.processFrames()
+
+                                scores?.let {
+                                    // Sort
+                                    var scoresWithClasses = scores.mapIndexed { index, fl ->
+                                        return@mapIndexed Pair(index, fl)
+                                    }
+                                    scoresWithClasses = scoresWithClasses.sortedWith(Comparator { o1, o2 ->
+                                        return@Comparator o2.second.compareTo(o1.second)
+                                    })
+                                    // Threshold
+                                    scoresWithClasses = scoresWithClasses.filter {
+                                        return@filter it.second >= DETECTION_THRESHOLD
+                                    }
+                                    // Top
+                                    scoresWithClasses =  scoresWithClasses.take(TOP_COUNT)
+
+                                    val classes = videoActionsClassifier?.getClassesList()
+                                    if (classes != null) {
+                                        val detectionsWithScores = scoresWithClasses.map {
+                                            return@map Pair(classes[it.first], it.second)
+                                        }
+                                        // Log.i(TAG, "result with classes : $detectionsWithScores")
+                                        videoDetections.add(
+                                            Pair(timeStamp, detectionsWithScores)
+                                        )
+                                    }
+                                }
+
+                                timeStamp = i + 1
+                                countOfFrames = durationInSeconds - (i + 1)
+                                videoActionsClassifier?.reset(countOfFrames)
+
+                                frames.forEach {
+                                    it.recycle()
+                                }
+                                frames.clear()
+                            }
                         }
+
+                        Log.i(TAG, "video : ${video.videoFullPath}")
+                        val detectionsStr = CommonUtilities.detectionsToString(videoDetections)
+                        metaData.detections = detectionsStr
+                        videosMetaData[video.videoFullPath] = metaData
+                        videoMetaDataManager.writeDetectionsMetaData(detectionsStr)
+                        showProcessing(index, false)
+                        Log.i(TAG, "detections : ${videosMetaData[video.videoFullPath]}")
+                    } else {
+                        // Already have detections metadata
+                        Log.i(TAG, "detections : ${videosMetaData[video.videoFullPath]}")
+                        showProcessing(index, false)
                     }
-                    showProcessing(index, false)
                 }
             }
         }

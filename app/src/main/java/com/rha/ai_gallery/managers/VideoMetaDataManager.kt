@@ -52,8 +52,8 @@ class VideoMetaDataManager {
         return null
     }
 
-    fun writeDetectionsMetaData(filePath: String, detections: String) {
-        // TODO
-        videoDetectionsMetaData[filePath] = detections
+    fun writeDetectionsMetaData(detections: String) {
+        if (inputFile == null) return
+        videoDetectionsMetaData[inputFile!!] = detections
     }
 }
