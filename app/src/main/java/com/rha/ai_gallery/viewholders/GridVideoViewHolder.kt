@@ -11,8 +11,17 @@ import java.io.File
 
 class GridVideoViewHolder(itemView: View) : ViewHolder(itemView) {
     private val viewBinding = GridVideoViewBinding.bind(itemView)
+    private var data: VideoGridItem? = null
+    private var listener: ((VideoGridItem?) -> Unit)? = null
+
+    init {
+        viewBinding.root.setOnClickListener {
+            listener?.invoke(data)
+        }
+    }
 
     fun setData(context: Context, videoGridItem: VideoGridItem) {
+        data = videoGridItem
         viewBinding.title.text = File(videoGridItem.videoFullPath).name
         Glide.with(context)
             .load(videoGridItem.videoFullPath)
@@ -22,4 +31,7 @@ class GridVideoViewHolder(itemView: View) : ViewHolder(itemView) {
         viewBinding.loading.visibility = if (videoGridItem.processing) View.VISIBLE else View.GONE
     }
 
+    fun setClickListener(callback: ((VideoGridItem?) -> Unit)?) {
+        listener = callback
+    }
 }

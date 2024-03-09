@@ -1,6 +1,7 @@
 package com.rha.ai_gallery
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.os.Bundle
@@ -52,10 +53,20 @@ class MainActivity : AppCompatActivity() {
         initClassifier()
     }
 
+    private fun onVideoClick(videoGridItem: VideoGridItem?) {
+        videoGridItem?.let {
+            val intent = Intent(this, VideoViewerActivity::class.java)
+            intent.putExtra("url", it.videoFullPath)
+            startActivity(intent)
+        }
+    }
+
     private fun initUI() {
         setSupportActionBar(binding.toolbar)
         binding.recyclerView.layoutManager = GridLayoutManager(this, 3)
-        gridVideosViewAdapter = GridVideosViewAdapter(videosList)
+        gridVideosViewAdapter = GridVideosViewAdapter(videosList) {
+            onVideoClick(it)
+        }
         binding.recyclerView.adapter = gridVideosViewAdapter
         checkPermission()
     }

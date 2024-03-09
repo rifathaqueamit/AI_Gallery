@@ -8,7 +8,7 @@ import com.rha.ai_gallery.R
 import com.rha.ai_gallery.models.VideoGridItem
 import com.rha.ai_gallery.viewholders.GridVideoViewHolder
 
-class GridVideosViewAdapter(private val videosList: MutableList<VideoGridItem>): RecyclerView.Adapter<GridVideoViewHolder>() {
+class GridVideosViewAdapter(private val videosList: MutableList<VideoGridItem>, private val onVideoClick: (VideoGridItem?) -> Unit): RecyclerView.Adapter<GridVideoViewHolder>() {
     private lateinit var context: Context
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): GridVideoViewHolder {
@@ -23,5 +23,6 @@ class GridVideosViewAdapter(private val videosList: MutableList<VideoGridItem>):
 
     override fun onBindViewHolder(holder: GridVideoViewHolder, position: Int) {
         holder.setData(context, videosList[position])
+        holder.setClickListener(onVideoClick)
     }
 }
