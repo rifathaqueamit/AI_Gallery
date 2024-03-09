@@ -20,12 +20,14 @@ class VideoActionsClassifier(private val context: Context) {
     private var targetVideoSize: Int = 160
     private var countOfFramesPerInference = 15
     private var inTensorBuffer: FloatBuffer? = null
+    private var minNumFrames = 4
 
-    fun initialize(modelFile: String, classesFile: String, videoSize: Int) {
+    fun initialize(modelFile: String, classesFile: String, videoSize: Int, minAcceptableFrames: Int) {
         try {
             module = LiteModuleLoader.load(CommonUtilities.getAssetFilePath(context, modelFile))
             modelClasses = CommonUtilities.readTextFileAsList(context, classesFile)
             targetVideoSize = videoSize
+            minNumFrames = minAcceptableFrames
         } catch (e: Exception) {
             Log.i(TAG, "initialize(), error : ${e.message}")
             e.printStackTrace()
@@ -37,8 +39,13 @@ class VideoActionsClassifier(private val context: Context) {
     }
 
     fun reset(countOfFrames: Int) {
-        countOfFramesPerInference = countOfFrames
-        inTensorBuffer = Tensor.allocateFloatBuffer(countOfFramesPerInference * 3 * targetVideoSize * targetVideoSize)
+        if (countOfFrames < minNumFrames) {
+            countOfFramesPerInference = minNumFrames
+            inTensorBuffer = Tensor.allocateFloatBuffer(countOfFramesPerInference * 3 * targetVideoSize * targetVideoSize)
+        } else {
+            countOfFramesPerInference = countOfFrames
+            inTensorBuffer = Tensor.allocateFloatBuffer(countOfFramesPerInference * 3 * targetVideoSize * targetVideoSize)
+        }
     }
 
     fun addInferenceFrames(frames: List<Bitmap>) {
@@ -54,6 +61,23 @@ class VideoActionsClassifier(private val context: Context) {
                 inTensorBuffer,
                 index * 3 * targetVideoSize * targetVideoSize
             )
+        }
+
+        // Fill up the rest of the frames so that atleast minNumFrames is covered
+        if (frames.size < countOfFramesPerInference) {
+            for (i in 0 until(countOfFramesPerInference - frames.size)) {
+                TensorImageUtils.bitmapToFloatBuffer(
+                    frames[frames.size - 1],
+                    0,
+                    0,
+                    targetVideoSize,
+                    targetVideoSize,
+                    Constants.MEAN_RGB,
+                    Constants.STD_RGB,
+                    inTensorBuffer,
+                    (frames.size + i) * 3 * targetVideoSize * targetVideoSize
+                )
+            }
         }
     }
 

@@ -35,10 +35,11 @@ class MainActivity : AppCompatActivity() {
     private val videoMetaDataManager = VideoMetaDataManager()
 
     private val REQUEST_CODE = 123
-    private val DETECTION_PER_SECOND = 15   // Produce a detection result pet 15 seconds
+    private val DETECTION_PER_SECOND = 10   // Produce a detection result per 10 seconds
     private val TARGET_VIDEO_SIZE = 160
     private val VIDEO_PATH_FILTER = "poc_test_videos"
     private val TOP_COUNT = 1
+    private val MIN_NUM_FRAMES = 4
 
     private val scope = CoroutineScope(Dispatchers.Default)
     private var job: Job? = null
@@ -61,7 +62,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun initClassifier() {
         videoActionsClassifier = VideoActionsClassifier(this)
-        videoActionsClassifier?.initialize("video_classification.ptl", "classes.txt", TARGET_VIDEO_SIZE)
+        videoActionsClassifier?.initialize("video_classification.ptl", "classes.txt", TARGET_VIDEO_SIZE, MIN_NUM_FRAMES)
     }
 
     private fun checkPermission() {
@@ -142,7 +143,7 @@ class MainActivity : AppCompatActivity() {
                     for (i in 0 until durationInSeconds) {
                         val fromMs = i * 1000
                         var toMs = (i + 1) * 1000
-                        if (i == durationInSeconds - 1)  toMs = (ceil(metaData.duration) - (i * 1000)).toInt()
+                        if (i == durationInSeconds - 1)  toMs = (durationInSeconds * 1000) - 1
                         val timeUs = (1000 * (fromMs + ((toMs - fromMs) * i / (countOfFrames - 1.0)).toInt())).toLong()
                         val bitmap = videoMetaDataManager .getVideoFrame(timeUs)
                         bitmap?.let {
