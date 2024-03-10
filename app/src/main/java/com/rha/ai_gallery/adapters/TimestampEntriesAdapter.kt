@@ -7,7 +7,7 @@ import com.rha.ai_gallery.R
 import com.rha.ai_gallery.models.VideoDetection
 import com.rha.ai_gallery.viewholders.TimestampEntryViewHolder
 
-class TimestampEntriesAdapter(private val detections: List<VideoDetection>):
+class TimestampEntriesAdapter(private val detections: List<VideoDetection>, private val onClick: (VideoDetection) -> Unit):
     RecyclerView.Adapter<TimestampEntryViewHolder>() {
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TimestampEntryViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.timestamp_entry, parent, false)
@@ -20,5 +20,6 @@ class TimestampEntriesAdapter(private val detections: List<VideoDetection>):
 
     override fun onBindViewHolder(holder: TimestampEntryViewHolder, position: Int) {
         holder.setData(detections[position])
+        holder.setOnClickListener(onClick)
     }
 }

@@ -48,6 +48,9 @@ class VideoViewerActivity : AppCompatActivity() {
 
     private fun updateUI(detections: List<VideoDetection>) {
         binding.recyclerViewTimestamps.layoutManager  = LinearLayoutManager(this)
-        binding.recyclerViewTimestamps.adapter = TimestampEntriesAdapter(detections)
+        binding.recyclerViewTimestamps.adapter = TimestampEntriesAdapter(detections) {
+            binding.videoView.pause()
+            binding.videoView.seekTo(it.fromTime * 1000)
+        }
     }
 }
