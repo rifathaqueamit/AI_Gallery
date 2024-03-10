@@ -2,6 +2,7 @@ package com.rha.ai_gallery.utilities
 
 import android.content.Context
 import com.google.gson.Gson
+import com.rha.ai_gallery.models.VideoDetection
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileOutputStream
@@ -33,7 +34,7 @@ object CommonUtilities {
         return text.lines()
     }
 
-    fun detectionsToString(detections: ArrayList<Pair<Int, List<Pair<String, Float>>>>): String {
+    fun detectionsToString(detections: ArrayList<VideoDetection>): String {
         return Gson().toJson(detections)
     }
 }

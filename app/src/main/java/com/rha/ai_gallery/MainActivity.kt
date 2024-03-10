@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import com.rha.ai_gallery.adapters.GridVideosViewAdapter
 import com.rha.ai_gallery.databinding.ActivityMainBinding
 import com.rha.ai_gallery.managers.VideoMetaDataManager
+import com.rha.ai_gallery.models.VideoDetection
 import com.rha.ai_gallery.models.VideoGridItem
 import com.rha.ai_gallery.models.VideoMetaData
 import com.rha.ai_gallery.utilities.CommonUtilities
@@ -143,7 +144,7 @@ class MainActivity : AppCompatActivity() {
             videosMetaData.clear()
             videosList.forEachIndexed { index, video ->
                 videoMetaDataManager.setDataSource(video.videoFullPath)
-                val videoDetections = arrayListOf<Pair<Int, List<Pair<String, Float>>>>()
+                val videoDetections = arrayListOf<VideoDetection>()
                 val metaData = videoMetaDataManager.getVideoMetaData()
                 if (metaData != null) {
                     videosMetaData[video.videoFullPath] = metaData
@@ -160,6 +161,7 @@ class MainActivity : AppCompatActivity() {
                         videoActionsClassifier?.reset(countOfFrames)
 
                         val frames = mutableListOf<Bitmap>()
+                        var prevTimeStamp = 0
                         var timeStamp = 0
                         for (i in 0 until durationInSeconds) {
                             val fromMs = i * 1000
@@ -182,6 +184,8 @@ class MainActivity : AppCompatActivity() {
                                 it.recycle()
                             }
                             if  ((i + 1) % DETECTION_PER_SECOND == 0 || i == durationInSeconds - 1) {
+                                timeStamp = i
+
                                 // Log.i(TAG, "processVideos() inference frames count : ${frames.size}")
                                 videoActionsClassifier?.addInferenceFrames(frames)
                                 val scores = videoActionsClassifier?.processFrames()
@@ -207,13 +211,11 @@ class MainActivity : AppCompatActivity() {
                                             return@map Pair(classes[it.first], it.second)
                                         }
                                         // Log.i(TAG, "result with classes : $detectionsWithScores")
-                                        videoDetections.add(
-                                            Pair(timeStamp, detectionsWithScores)
-                                        )
+                                        videoDetections.add(VideoDetection(prevTimeStamp, timeStamp, detectionsWithScores))
                                     }
                                 }
 
-                                timeStamp = i + 1
+                                prevTimeStamp = timeStamp + 1
                                 countOfFrames = durationInSeconds - (i + 1)
                                 videoActionsClassifier?.reset(countOfFrames)
 
