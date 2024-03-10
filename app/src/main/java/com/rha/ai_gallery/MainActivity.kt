@@ -38,12 +38,13 @@ class MainActivity : AppCompatActivity() {
     private val videoMetaDataManager = VideoMetaDataManager()
 
     private val REQUEST_CODE = 123
-    private val DETECTION_PER_SECOND = 10   // Produce a detection result per 10 seconds
+    private val DETECTION_PER_SECOND = 1   // Produce a detection result per 10 seconds
+    private val FRAMES_PER_SECOND = 4
     private val TARGET_VIDEO_SIZE = 160
     private val VIDEO_PATH_FILTER = "poc_test_videos"
     private val TOP_COUNT = 5
     private val MIN_NUM_FRAMES = 4
-    private val DETECTION_THRESHOLD = 5
+    private val DETECTION_THRESHOLD = 10
 
     private val scope = CoroutineScope(Dispatchers.Default)
     private var job: Job? = null
@@ -153,9 +154,9 @@ class MainActivity : AppCompatActivity() {
                     if (metaData.detections.isNullOrEmpty()) {
 
                         val durationInSeconds = ceil(metaData.duration / 1000).toInt()
-                        var countOfFrames = DETECTION_PER_SECOND
+                        var countOfFrames = DETECTION_PER_SECOND * FRAMES_PER_SECOND
                         if (durationInSeconds < DETECTION_PER_SECOND)  {
-                            countOfFrames = durationInSeconds
+                            countOfFrames = durationInSeconds * FRAMES_PER_SECOND
                         }
                         // Log.i(TAG, "processVideos() countOfFrames : $countOfFrames")
                         videoActionsClassifier?.reset(countOfFrames)
@@ -167,21 +168,24 @@ class MainActivity : AppCompatActivity() {
                             val fromMs = i * 1000
                             var toMs = (i + 1) * 1000
                             if (i == durationInSeconds - 1)  toMs = (durationInSeconds * 1000) - 1
-                            val timeUs = (1000 * (fromMs + ((toMs - fromMs) * i / (countOfFrames - 1.0)).toInt())).toLong()
-                            val bitmap = videoMetaDataManager .getVideoFrame(timeUs)
-                            bitmap?.let {
-                                val ratio = Math.min(bitmap.width, bitmap.height) / TARGET_VIDEO_SIZE.toFloat()
-                                val resizedBitmap = Bitmap.createScaledBitmap(bitmap, (bitmap.width / ratio).toInt(), (bitmap.height / ratio).toInt(), true)
-                                val centerCroppedBitmap = Bitmap.createBitmap(
-                                    resizedBitmap,
-                                    if (resizedBitmap.width > resizedBitmap.height) (resizedBitmap.width - resizedBitmap.height) / 2 else 0,
-                                    if (resizedBitmap.height > resizedBitmap.width) (resizedBitmap.height - resizedBitmap.width) / 2 else 0,
-                                    TARGET_VIDEO_SIZE,
-                                    TARGET_VIDEO_SIZE
-                                )
-                                frames.add(centerCroppedBitmap)
-                                resizedBitmap.recycle()
-                                it.recycle()
+                            for (k in 0 until FRAMES_PER_SECOND) {
+                                val timeUs = ((fromMs + ((toMs - fromMs) / FRAMES_PER_SECOND) * k) * 1000).toLong()
+                                // val timeUs = (1000 * (fromMs + ((toMs - fromMs) * i / (countOfFrames - 1.0)).toInt())).toLong()
+                                val bitmap = videoMetaDataManager .getVideoFrame(timeUs)
+                                bitmap?.let {
+                                    val ratio = Math.min(bitmap.width, bitmap.height) / TARGET_VIDEO_SIZE.toFloat()
+                                    val resizedBitmap = Bitmap.createScaledBitmap(bitmap, (bitmap.width / ratio).toInt(), (bitmap.height / ratio).toInt(), true)
+                                    val centerCroppedBitmap = Bitmap.createBitmap(
+                                        resizedBitmap,
+                                        if (resizedBitmap.width > resizedBitmap.height) (resizedBitmap.width - resizedBitmap.height) / 2 else 0,
+                                        if (resizedBitmap.height > resizedBitmap.width) (resizedBitmap.height - resizedBitmap.width) / 2 else 0,
+                                        TARGET_VIDEO_SIZE,
+                                        TARGET_VIDEO_SIZE
+                                    )
+                                    frames.add(centerCroppedBitmap)
+                                    resizedBitmap.recycle()
+                                    it.recycle()
+                                }
                             }
                             if  ((i + 1) % DETECTION_PER_SECOND == 0 || i == durationInSeconds - 1) {
                                 timeStamp = i
@@ -216,7 +220,7 @@ class MainActivity : AppCompatActivity() {
                                 }
 
                                 prevTimeStamp = timeStamp + 1
-                                countOfFrames = durationInSeconds - (i + 1)
+                                countOfFrames = (durationInSeconds - (i + 1)) * FRAMES_PER_SECOND
                                 videoActionsClassifier?.reset(countOfFrames)
 
                                 frames.forEach {
